@@ -1,0 +1,30 @@
+---
+- name: Disable and blacklist the copyfail mitigation
+  hosts: all
+  become: true
+  vars:
+    mitigation_name: copyfail
+    blacklist_file: /etc/modprobe.d/copyfail-blacklist.conf
+
+  tasks:
+    - name: Blacklist the copyfail kernel module
+      ansible.builtin.copy:
+        dest: "{{ blacklist_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible — disables the copyfail mitigation
+          blacklist {{ mitigation_name }}
+          install {{ mitigation_name }} /bin/true
+
+    - name: Check whether the copyfail module is currently loaded
+      ansible.builtin.command: lsmod
+      register: lsmod_out
+      changed_when: false
+
+    - name: Unload the copyfail module if loaded
+      community.general.modprobe:
+        name: "{{ mitigation_name }}"
+        state: absent
+      when: "mitigation_name in lsmod_out.stdout"
