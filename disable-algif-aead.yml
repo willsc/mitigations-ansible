@@ -1,0 +1,30 @@
+---
+- name: Disable and blacklist the algif_aead kernel module
+  hosts: all
+  become: true
+  vars:
+    module_name: algif_aead
+    blacklist_file: /etc/modprobe.d/disable-algif-aead.conf
+
+  tasks:
+    - name: Blacklist the algif_aead kernel module
+      ansible.builtin.copy:
+        dest: "{{ blacklist_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible — disables the algif_aead module
+          blacklist {{ module_name }}
+          install {{ module_name }} /bin/false
+
+    - name: Check whether the algif_aead module is currently loaded
+      ansible.builtin.command: lsmod
+      register: lsmod_out
+      changed_when: false
+
+    - name: Unload the algif_aead module if loaded
+      community.general.modprobe:
+        name: "{{ module_name }}"
+        state: absent
+      when: "module_name in lsmod_out.stdout"
