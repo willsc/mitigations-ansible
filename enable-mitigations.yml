@@ -1,0 +1,30 @@
+---
+- name: Re-enable previously disabled kernel modules
+  hosts: all
+  become: true
+  vars:
+    mitigations:
+      - name: algif_aead
+        config: /etc/modprobe.d/disable-algif-aead.conf
+      - name: copyfail
+        config: /etc/modprobe.d/copyfail-blacklist.conf
+
+  tasks:
+    - name: Remove modprobe.d blacklist files
+      ansible.builtin.file:
+        path: "{{ item.config }}"
+        state: absent
+      loop: "{{ mitigations }}"
+      loop_control:
+        label: "{{ item.config }}"
+
+    - name: Load kernel modules
+      community.general.modprobe:
+        name: "{{ item.name }}"
+        state: present
+      loop: "{{ mitigations }}"
+      loop_control:
+        label: "{{ item.name }}"
+      # Tolerate modules that aren't built for the running kernel — the
+      # revert is still successful as far as the modprobe.d config goes.
+      failed_when: false

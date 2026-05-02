@@ -9,13 +9,19 @@ mitigations on target hosts.
 | --- | --- | --- |
 | `disable-algif-aead.yml` | `algif_aead` | `/etc/modprobe.d/disable-algif-aead.conf` |
 | `disable-copyfail.yml` | `copyfail` | `/etc/modprobe.d/copyfail-blacklist.conf` |
+| `enable-mitigations.yml` | both | (removes the configs above) |
 
-Each playbook:
+Each `disable-*` playbook:
 
 1. Writes a `modprobe.d` config that `blacklist`s the module and rewires its
    `install` line to a no-op (`/bin/false` or `/bin/true`).
 2. Runs `lsmod` to detect whether the module is currently loaded.
 3. Unloads the module via `community.general.modprobe` if present.
+
+`enable-mitigations.yml` reverses both: it removes the `modprobe.d` configs
+and loads each module via `community.general.modprobe`. Module loads that
+fail (e.g. module not built for the running kernel) are tolerated so the
+revert still completes.
 
 ## Requirements
 
@@ -75,7 +81,13 @@ lsmod | grep algif_aead   # should produce no output
 
 ## Reverting
 
-Remove the config file and reload the module:
+Use the revert playbook to remove all configs and reload the modules:
+
+```bash
+ansible-playbook -i 'localhost,' -c local enable-mitigations.yml
+```
+
+Or revert a single host manually:
 
 ```bash
 sudo rm /etc/modprobe.d/disable-algif-aead.conf
